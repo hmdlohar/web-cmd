@@ -5,7 +5,7 @@ const clients = new Map();
 const pendingMessages = new Map();
 
 // Debug flag
-const DEBUG = true;
+const DEBUG = false;
 
 function log(...args) {
     if (DEBUG) {

@@ -11,7 +11,7 @@ const activeCommands = new Map();
 const DEFAULT_WORKING_DIR = os.homedir();
 
 // Debug flag
-const DEBUG = true;
+const DEBUG = false;
 
 function log(...args) {
     if (DEBUG) {

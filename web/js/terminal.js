@@ -27,7 +27,7 @@ $(document).ready(function() {
     let currentPwdBlockId = null;
     
     // Debug flag
-    const DEBUG = true;
+    const DEBUG = false;
     
     function log(...args) {
         if (DEBUG) {
@@ -262,57 +262,105 @@ $(document).ready(function() {
         const outputArea = $(`#block-${blockId} .command-output`);
         const inputElement = $(`#block-${blockId} .command-input`);
         
-        log(`Registering handler for command ${commandId}`);
+        // Maximum number of lines to keep in the output
+        const MAX_OUTPUT_LINES = 100;
+        
+        // Lines counter
+        let lineCount = 0;
         
         // Clear the output area
         outputArea.text('');
-        outputArea.show();
+        
+        // Add toggle button for output visibility
+        if (!$(`#block-${blockId} .toggle-output-btn`).length) {
+            const toggleBtn = $(`<button class="toggle-output-btn" title="Toggle Output Visibility">👁️</button>`);
+            toggleBtn.insertAfter($(`#block-${blockId} .pwd-btn`));
+            
+            toggleBtn.on('click', function() {
+                if (outputArea.is(':visible')) {
+                    outputArea.hide();
+                    $(this).addClass('inactive').attr('title', 'Show Output');
+                } else {
+                    outputArea.show();
+                    $(this).removeClass('inactive').attr('title', 'Hide Output');
+                }
+            });
+        }
         
         // Set a timeout to detect if we don't receive any messages
         const timeoutId = setTimeout(() => {
-            if (commandStatus.get(commandId) === false) {
-                log(`No completion message received for command ${commandId} after 10 seconds`);
+            if (commandStatus.get(commandId) !== 'completed') {
+                console.warn(`No response received for command ${commandId} after 5 seconds`);
                 
                 // Re-enable input and hide interrupt button
                 inputElement.prop('disabled', false);
                 $(`#block-${blockId} .interrupt-btn`).hide();
                 
-                outputArea.append('\n\nWarning: No completion message received from server. The command may still be running.');
+                outputArea.append('\n\nError: No response from server. The command may have completed too quickly.');
                 
-                // Don't remove the handler in case messages arrive late
+                // Remove the handler
+                commandHandlers.delete(commandId);
+                commandStatus.delete(commandId);
+                
+                // Add a new command block if this is the last one
+                const isLastBlock = $(`#block-${blockId}`).is(':last-child');
+                if (isLastBlock) {
+                    addCommandBlock();
+                }
             }
-        }, 10000); // 10 second timeout
+        }, 5000);
         
         // Register handler for this command
         commandHandlers.set(commandId, function(data) {
-            log(`Received data for command ${commandId}: ${data.type}`);
-            
             // Clear the timeout since we received a response
             clearTimeout(timeoutId);
             
+            // Mark command as active
+            commandStatus.set(commandId, 'active');
+            
             if (data.type === 'start') {
                 outputArea.append(data.message);
+                lineCount += (data.message.match(/\n/g) || []).length + 1;
             } else if (data.type === 'output' || data.type === 'error') {
+                // Count lines in the new content
+                const newLines = (data.message.match(/\n/g) || []).length + 1;
+                lineCount += newLines;
+                
+                // Append the new content
                 outputArea.append(data.message);
+                
+                // If we exceed the maximum number of lines, trim the output
+                if (lineCount > MAX_OUTPUT_LINES) {
+                    const content = outputArea.text();
+                    const allLines = content.split('\n');
+                    const linesToKeep = allLines.slice(-MAX_OUTPUT_LINES);
+                    
+                    // Update the output area with trimmed content
+                    outputArea.html('');
+                    outputArea.append('[...Output trimmed, showing last 100 lines...]\n');
+                    outputArea.append(linesToKeep.join('\n'));
+                    
+                    // Reset line count
+                    lineCount = linesToKeep.length + 1;
+                }
+                
                 // Auto-scroll to bottom
                 outputArea.scrollTop(outputArea[0].scrollHeight);
             } else if (data.type === 'end' || data.type === 'interrupt') {
-                // Mark command as completed
-                commandStatus.set(commandId, true);
-                
                 outputArea.append(data.message);
+                
                 // Auto-scroll to bottom
                 outputArea.scrollTop(outputArea[0].scrollHeight);
+                
+                // Mark command as completed
+                commandStatus.set(commandId, 'completed');
+                
+                // Remove the handler
+                commandHandlers.delete(commandId);
                 
                 // Re-enable input and hide interrupt button
                 inputElement.prop('disabled', false);
                 $(`#block-${blockId} .interrupt-btn`).hide();
-                
-                // Remove the handler after a short delay to catch any late messages
-                setTimeout(() => {
-                    commandHandlers.delete(commandId);
-                    commandStatus.delete(commandId);
-                }, 500);
                 
                 // Add a new command block if this is the last one
                 const isLastBlock = $(`#block-${blockId}`).is(':last-child');
@@ -327,15 +375,16 @@ $(document).ready(function() {
      * Add a new command block
      */
     function addCommandBlock() {
-        const blockId = Date.now();
+        const blockId = Date.now().toString();
         const commandBlock = `
             <div class="command-block" id="block-${blockId}">
-                <button class="remove-btn" title="Remove">×</button>
-                <button class="interrupt-btn" data-block-id="${blockId}" title="Interrupt Command">⚡ Stop</button>
-                <button class="pwd-btn" data-block-id="${blockId}" title="Working Directory: ${globalWorkingDir}">
+                <button class="remove-btn" title="Remove Command">×</button>
+                <button class="interrupt-btn" title="Interrupt Command">⚡ Stop</button>
+                <button class="pwd-btn" title="Working Directory: ${globalWorkingDir}">
                     <i class="fas fa-folder"></i>
                 </button>
-                <input type="text" class="command-input" placeholder="Enter command..." data-block-id="${blockId}">
+                <button class="toggle-output-btn" title="Toggle Output Visibility">👁️</button>
+                <input type="text" class="command-input" placeholder="Enter command...">
                 <div class="command-suggestions" id="suggestions-${blockId}"></div>
                 <div class="command-output" style="display: none;"></div>
             </div>
@@ -358,6 +407,7 @@ $(document).ready(function() {
     function setupCommandBlockHandlers(blockId) {
         const inputElement = $(`#block-${blockId} .command-input`);
         const suggestionsElement = $(`#suggestions-${blockId}`);
+        const outputArea = $(`#block-${blockId} .command-output`);
         let currentSuggestionIndex = -1;
         let filteredSuggestions = [];
         let historyPosition = -1; // Track position in command history for up/down navigation
@@ -393,6 +443,17 @@ $(document).ready(function() {
             const currentPwd = $(`#block-${blockId}`).data('working-dir') || globalWorkingDir;
             $('#pwd-input').val(currentPwd);
             $('#pwd-modal').show();
+        });
+        
+        // Toggle output button handler
+        $(`#block-${blockId} .toggle-output-btn`).on('click', function() {
+            if (outputArea.is(':visible')) {
+                outputArea.hide();
+                $(this).addClass('inactive').attr('title', 'Show Output');
+            } else {
+                outputArea.show();
+                $(this).removeClass('inactive').attr('title', 'Hide Output');
+            }
         });
         
         // Function to show command suggestions

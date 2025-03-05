@@ -40,7 +40,7 @@ body {
     overflow-y: auto;
 }
 
-.remove-btn, .interrupt-btn, .pwd-btn {
+.remove-btn, .interrupt-btn, .pwd-btn, .toggle-output-btn {
     position: absolute;
     top: 10px;
     border: none;
@@ -68,8 +68,25 @@ body {
     color: white;
 }
 
+.toggle-output-btn {
+    right: 115px;
+    background-color: #4d94ff;
+    color: white;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
 .pwd-btn.active {
     background-color: #2a75cc;
+}
+
+.toggle-output-btn.inactive {
+    background-color: #555;
+    opacity: 0.7;
 }
 
 .add-command-btn {
