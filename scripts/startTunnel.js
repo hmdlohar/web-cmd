@@ -3,7 +3,7 @@ const fs = require("fs");
 
 try {
   // Start the server in the background
-  const server = spawn("node", ["server.js"], {
+  const server = spawn("node", ["index.js"], {
     stdio: "inherit",
   });
 
