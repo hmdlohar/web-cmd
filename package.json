@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "startTunnel": "node scripts/startTunnel.js"
   }
 } 
