@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Terminal</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="/css/terminal.css">
     <style>
         body {
             background-color: #1e1e1e;
             color: #f0f0f0;
             padding: 20px;
+            padding-bottom: 60px; /* Space for the global pwd bar */
         }
         .terminal-container {
             width: 100%;
@@ -42,7 +45,7 @@
             max-height: 300px;
             overflow-y: auto;
         }
-        .remove-btn, .interrupt-btn {
+        .remove-btn, .interrupt-btn, .pwd-btn {
             position: absolute;
             top: 10px;
             border: none;
@@ -60,6 +63,11 @@
             background-color: #ffa500;
             color: white;
             display: none;
+        }
+        .pwd-btn {
+            right: 80px;
+            background-color: #4d94ff;
+            color: white;
         }
         .add-command-btn {
             background-color: #4d94ff;
@@ -96,6 +104,90 @@
         .suggestion-item:hover, .suggestion-item.selected {
             background-color: #4d4d4d;
         }
+        
+        .pwd-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+        }
+        
+        .pwd-modal-content {
+            background-color: #2d2d2d;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 5px;
+            width: 50%;
+        }
+        
+        .pwd-input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            background-color: #3a3a3a;
+            color: #f0f0f0;
+            border: none;
+            border-radius: 3px;
+        }
+        
+        .pwd-modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        .pwd-modal-btn {
+            margin-left: 10px;
+            padding: 5px 15px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .pwd-save-btn {
+            background-color: #4d94ff;
+            color: white;
+        }
+        
+        .pwd-cancel-btn {
+            background-color: #666;
+            color: white;
+        }
+        
+        .global-pwd-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #2d2d2d;
+            color: #d0d0d0;
+            padding: 8px 15px;
+            font-family: monospace;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 900;
+            height: 40px;
+            border-top: 1px solid #444;
+        }
+        
+        .global-pwd-text {
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .global-pwd-edit-btn {
+            background-color: transparent;
+            color: #4d94ff;
+            border: none;
+            cursor: pointer;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -110,286 +202,28 @@
             </div>
         </div>
     </div>
+    
+    <!-- PWD Modal -->
+    <div id="pwd-modal" class="pwd-modal">
+        <div class="pwd-modal-content">
+            <h4>Set Working Directory</h4>
+            <input type="text" id="pwd-input" class="pwd-input" placeholder="Enter working directory...">
+            <div class="pwd-modal-buttons">
+                <button id="pwd-cancel-btn" class="pwd-modal-btn pwd-cancel-btn">Cancel</button>
+                <button id="pwd-save-btn" class="pwd-modal-btn pwd-save-btn">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Global PWD Bar -->
+    <div class="global-pwd-bar">
+        <div class="global-pwd-text" id="global-pwd-text">Working Directory: Loading...</div>
+        <button class="global-pwd-edit-btn" id="global-pwd-edit-btn">
+            <i class="fas fa-edit"></i>
+        </button>
+    </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            // Command history array
-            let commandHistory = [];
-            
-            // Load command history from localStorage
-            if (localStorage.getItem('commandHistory')) {
-                try {
-                    commandHistory = JSON.parse(localStorage.getItem('commandHistory'));
-                } catch (e) {
-                    console.error('Error loading command history:', e);
-                    commandHistory = [];
-                }
-            }
-            
-            // Function to save command to history
-            function saveCommandToHistory(command) {
-                // Don't save empty commands or duplicates of the last command
-                if (!command.trim() || (commandHistory.length > 0 && commandHistory[0] === command)) {
-                    return;
-                }
-                
-                // Remove command if it already exists in history to avoid duplicates
-                const index = commandHistory.indexOf(command);
-                if (index !== -1) {
-                    commandHistory.splice(index, 1);
-                }
-                
-                // Add command to the beginning of history
-                commandHistory.unshift(command);
-                
-                // Limit history size to 100 commands
-                if (commandHistory.length > 100) {
-                    commandHistory.pop();
-                }
-                
-                // Save to localStorage
-                localStorage.setItem('commandHistory', JSON.stringify(commandHistory));
-            }
-            
-            // Add initial command block
-            addCommandBlock();
-
-            // Add command button click handler
-            $('#add-command-btn').on('click', function() {
-                addCommandBlock();
-            });
-
-            // Function to add a new command block
-            function addCommandBlock() {
-                const blockId = Date.now();
-                const commandBlock = `
-                    <div class="command-block" id="block-${blockId}">
-                        <button class="remove-btn">×</button>
-                        <button class="interrupt-btn" data-block-id="${blockId}">⚡ Stop</button>
-                        <input type="text" class="command-input" placeholder="Enter command..." data-block-id="${blockId}">
-                        <div class="command-suggestions" id="suggestions-${blockId}"></div>
-                        <div class="command-output" style="display: none;"></div>
-                    </div>
-                `;
-                $('#terminal-container').append(commandBlock);
-                
-                // Focus on the new input
-                $(`#block-${blockId} .command-input`).focus();
-                
-                // Set up event handlers for the new block
-                setupCommandBlockHandlers(blockId);
-            }
-
-            // Set up event handlers for command blocks
-            function setupCommandBlockHandlers(blockId) {
-                const inputElement = $(`#block-${blockId} .command-input`);
-                const suggestionsElement = $(`#suggestions-${blockId}`);
-                let currentSuggestionIndex = -1;
-                let filteredSuggestions = [];
-                let historyPosition = -1; // Track position in command history for up/down navigation
-                
-                // Remove button handler
-                $(`#block-${blockId} .remove-btn`).on('click', function() {
-                    $(`#block-${blockId}`).remove();
-                });
-
-                // Interrupt button handler
-                $(`#block-${blockId} .interrupt-btn`).on('click', function() {
-                    const commandId = $(this).data('command-id');
-                    if (commandId) {
-                        // Send interrupt request to server
-                        $.ajax({
-                            url: `/interrupt/${commandId}`,
-                            method: 'POST',
-                            success: function(response) {
-                                const outputArea = $(`#block-${blockId} .command-output`);
-                                outputArea.append('\n\n[Command interrupted]');
-                            },
-                            error: function(err) {
-                                console.error('Error interrupting command:', err);
-                            }
-                        });
-                    }
-                    // Hide interrupt button
-                    $(this).hide();
-                });
-                
-                // Function to show command suggestions
-                function showSuggestions(input) {
-                    if (!input.trim()) {
-                        suggestionsElement.hide();
-                        return;
-                    }
-                    
-                    // Filter command history for suggestions
-                    filteredSuggestions = commandHistory.filter(cmd => 
-                        cmd.toLowerCase().includes(input.toLowerCase())
-                    );
-                    
-                    if (filteredSuggestions.length === 0) {
-                        suggestionsElement.hide();
-                        return;
-                    }
-                    
-                    // Build suggestion HTML
-                    let suggestionsHtml = '';
-                    filteredSuggestions.forEach((cmd, index) => {
-                        suggestionsHtml += `<div class="suggestion-item" data-index="${index}">${cmd}</div>`;
-                    });
-                    
-                    suggestionsElement.html(suggestionsHtml);
-                    suggestionsElement.show();
-                    
-                    // Add click handler for suggestions
-                    $('.suggestion-item').on('click', function() {
-                        const selectedCommand = filteredSuggestions[$(this).data('index')];
-                        inputElement.val(selectedCommand);
-                        suggestionsElement.hide();
-                        inputElement.focus();
-                    });
-                    
-                    currentSuggestionIndex = -1;
-                }
-                
-                // Input event for showing suggestions
-                inputElement.on('input', function() {
-                    // Reset history position when user types
-                    historyPosition = -1;
-                    showSuggestions($(this).val());
-                });
-                
-                // Focus out event to hide suggestions
-                inputElement.on('blur', function() {
-                    // Delay hiding to allow for clicks on suggestions
-                    setTimeout(() => {
-                        suggestionsElement.hide();
-                    }, 200);
-                });
-
-                // Command input handler
-                inputElement.on('keydown', function(e) {
-                    // Handle up/down arrow keys for shell-like history navigation
-                    if (!suggestionsElement.is(':visible')) {
-                        if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            
-                            // If we're at the start or haven't navigated yet
-                            if (historyPosition < commandHistory.length - 1) {
-                                historyPosition++;
-                                inputElement.val(commandHistory[historyPosition]);
-                                
-                                // Place cursor at the end of the input
-                                const inputLength = inputElement.val().length;
-                                setTimeout(() => {
-                                    inputElement[0].setSelectionRange(inputLength, inputLength);
-                                }, 0);
-                            }
-                            return;
-                        } else if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            
-                            if (historyPosition > 0) {
-                                historyPosition--;
-                                inputElement.val(commandHistory[historyPosition]);
-                            } else if (historyPosition === 0) {
-                                // Clear input when going past the most recent command
-                                historyPosition = -1;
-                                inputElement.val('');
-                            }
-                            return;
-                        }
-                    }
-                    
-                    // Handle up/down arrow keys for navigating suggestions
-                    if (suggestionsElement.is(':visible')) {
-                        if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            if (currentSuggestionIndex < filteredSuggestions.length - 1) {
-                                currentSuggestionIndex++;
-                                $('.suggestion-item').removeClass('selected');
-                                $(`.suggestion-item[data-index="${currentSuggestionIndex}"]`).addClass('selected');
-                            }
-                            return;
-                        } else if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            if (currentSuggestionIndex > 0) {
-                                currentSuggestionIndex--;
-                                $('.suggestion-item').removeClass('selected');
-                                $(`.suggestion-item[data-index="${currentSuggestionIndex}"]`).addClass('selected');
-                            }
-                            return;
-                        } else if (e.key === 'Tab' || e.key === 'Enter') {
-                            if (currentSuggestionIndex >= 0) {
-                                e.preventDefault();
-                                const selectedCommand = filteredSuggestions[currentSuggestionIndex];
-                                inputElement.val(selectedCommand);
-                                suggestionsElement.hide();
-                                return;
-                            }
-                        } else if (e.key === 'Escape') {
-                            suggestionsElement.hide();
-                            return;
-                        }
-                    }
-                    
-                    if (e.key === 'Enter') {
-                        const command = $(this).val();
-                        if (command.trim() === '') return;
-                        
-                        // Save command to history
-                        saveCommandToHistory(command);
-                        
-                        // Reset history position
-                        historyPosition = -1;
-                        
-                        // Disable input while command is executing
-                        $(this).prop('disabled', true);
-                        
-                        // Show output area with loading message
-                        const outputArea = $(`#block-${blockId} .command-output`);
-                        outputArea.text('Executing command...').show();
-                        
-                        // Send command to server
-                        $.ajax({
-                            url: '/execute',
-                            method: 'POST',
-                            contentType: 'application/json',
-                            data: JSON.stringify({ command }),
-                            success: function(response) {
-                                outputArea.text(response.output);
-                                
-                                // Store command ID for interrupt functionality
-                                if (response.commandId) {
-                                    $(`#block-${blockId} .interrupt-btn`).data('command-id', response.commandId);
-                                }
-                                
-                                // Add a new command block if this is the last one
-                                const isLastBlock = $(`#block-${blockId}`).is(':last-child');
-                                if (isLastBlock) {
-                                    addCommandBlock();
-                                }
-                            },
-                            error: function(err) {
-                                outputArea.text('Error executing command: ' + JSON.stringify(err));
-                            },
-                            complete: function() {
-                                // Re-enable input
-                                inputElement.prop('disabled', false);
-                                // Hide interrupt button
-                                $(`#block-${blockId} .interrupt-btn`).hide();
-                            }
-                        });
-                        
-                        // Show interrupt button while command is running
-                        $(`#block-${blockId} .interrupt-btn`).show();
-                        
-                        // Hide suggestions
-                        suggestionsElement.hide();
-                    }
-                });
-            }
-        });
-    </script>
+    <script src="/js/terminal.js"></script>
 </body>
 </html>

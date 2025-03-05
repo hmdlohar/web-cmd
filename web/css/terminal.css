@@ -1,0 +1,197 @@
+body {
+    background-color: #1e1e1e;
+    color: #f0f0f0;
+    padding: 20px;
+    padding-bottom: 60px; /* Space for the global pwd bar */
+}
+
+.terminal-container {
+    width: 100%;
+    margin: 0 auto;
+}
+
+.command-block {
+    background-color: #2d2d2d;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    padding: 10px;
+    position: relative;
+}
+
+.command-input {
+    background-color: #3a3a3a;
+    color: #f0f0f0;
+    border: none;
+    border-radius: 3px;
+    padding: 8px 12px;
+    width: 100%;
+    font-family: monospace;
+}
+
+.command-output {
+    background-color: #252525;
+    color: #d0d0d0;
+    border-radius: 3px;
+    padding: 10px;
+    margin-top: 10px;
+    white-space: pre-wrap;
+    font-family: monospace;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.remove-btn, .interrupt-btn, .pwd-btn {
+    position: absolute;
+    top: 10px;
+    border: none;
+    border-radius: 3px;
+    padding: 2px 8px;
+    cursor: pointer;
+}
+
+.remove-btn {
+    right: 10px;
+    background-color: #ff4d4d;
+    color: white;
+}
+
+.interrupt-btn {
+    right: 45px;
+    background-color: #ffa500;
+    color: white;
+    display: none;
+}
+
+.pwd-btn {
+    right: 80px;
+    background-color: #4d94ff;
+    color: white;
+}
+
+.pwd-btn.active {
+    background-color: #2a75cc;
+}
+
+.add-command-btn {
+    background-color: #4d94ff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 15px;
+    cursor: pointer;
+    margin-bottom: 20px;
+}
+
+.header {
+    margin-bottom: 20px;
+    color: #4d94ff;
+}
+
+.command-suggestions {
+    position: absolute;
+    width: 100%;
+    background-color: #3a3a3a;
+    border: 1px solid #555;
+    border-radius: 3px;
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+}
+
+.suggestion-item {
+    padding: 5px 10px;
+    cursor: pointer;
+    color: #d0d0d0;
+    font-family: monospace;
+}
+
+.suggestion-item:hover, .suggestion-item.selected {
+    background-color: #4d4d4d;
+}
+
+.global-pwd-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #2d2d2d;
+    padding: 8px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #444;
+    z-index: 1000;
+    height: 40px;
+}
+
+.global-pwd-text {
+    color: #d0d0d0;
+    font-family: monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.global-pwd-edit-btn {
+    background-color: transparent;
+    color: #4d94ff;
+    border: none;
+    cursor: pointer;
+    padding: 0 5px;
+}
+
+.pwd-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 2000;
+}
+
+.pwd-modal-content {
+    background-color: #2d2d2d;
+    margin: 15% auto;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 500px;
+}
+
+.pwd-input {
+    width: 100%;
+    padding: 8px;
+    margin: 10px 0;
+    background-color: #3a3a3a;
+    color: #f0f0f0;
+    border: 1px solid #555;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.pwd-modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 15px;
+}
+
+.pwd-modal-btn {
+    padding: 8px 15px;
+    margin-left: 10px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.pwd-cancel-btn {
+    background-color: #555;
+    color: white;
+}
+
+.pwd-save-btn {
+    background-color: #4d94ff;
+    color: white;
+} 
