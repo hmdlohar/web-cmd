@@ -126,6 +126,21 @@
       padding-top: 20px;
     }
     
+    .close-btn {
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background-color 0.3s;
+    }
+    
+    .close-btn:hover {
+      background-color: #c0392b;
+    }
+    
     @media (max-width: 768px) {
       .tunnels-table {
         font-size: 14px;
@@ -194,6 +209,7 @@
                   <th>Local Port</th>
                   <th>Created</th>
                   <th>Active Connections</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -209,7 +225,8 @@
                 <td><a href="${publicUrl}" target="_blank" class="tunnel-link">${publicUrl}</a></td>
                 <td>${tunnel.localPort}</td>
                 <td>${createdAt}</td>
-                <td><span class="connections-badge">${tunnel.connections}</span></td>
+                <td><span class="connections-badge">${tunnel.connectionCount}</span></td>
+                <td><button class="close-btn" onclick="closeTunnel('${tunnel.tunnelId}')">Close</button></td>
               </tr>
             `;
           });
@@ -230,6 +247,27 @@
           // Reset refresh icon
           document.getElementById('refresh-icon').textContent = '🔄';
         });
+    }
+    
+    function closeTunnel(tunnelId) {
+      if (confirm('Are you sure you want to close this tunnel?')) {
+        fetch(`/api/close/${tunnelId}`, {
+          method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            alert('Tunnel closed successfully');
+            fetchTunnels(); // Refresh the list
+          } else {
+            alert(`Error: ${data.error || 'Unknown error'}`);
+          }
+        })
+        .catch(error => {
+          console.error('Error closing tunnel:', error);
+          alert('Failed to close tunnel. See console for details.');
+        });
+      }
     }
     
     // Set up auto-refresh

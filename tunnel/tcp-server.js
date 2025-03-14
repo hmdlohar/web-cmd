@@ -93,11 +93,12 @@ function setupWebSocketServer() {
         const tunnelInfo = tunnels.get(tunnelId);
         tunnelInfo.active = false;
         tunnelInfo.controlWs = null;
-        tunnelInfo.server.close();
         tunnels.set(tunnelId, tunnelInfo);
         console.log(`Tunnel ${tunnelId} marked as inactive`);
-        usedPorts.delete(tunnelInfo.publicPort);
-        tunnels.delete(tunnelId);
+        // tunnelInfo.server.close();
+        // usedPorts.delete(tunnelInfo.publicPort);
+        // tunnels.delete(tunnelId);
+        closeTunnel(tunnelId);
       }
     });
 
