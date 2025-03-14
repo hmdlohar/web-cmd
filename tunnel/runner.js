@@ -145,15 +145,6 @@ function connectToServer() {
   ws.on('open', () => {
     console.log('Connected to tunnel server');
     
-    // Send heartbeats every 15 seconds to keep the connection alive
-    let heartbeatInterval = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'heartbeat' }));
-      } else {
-        clearInterval(heartbeatInterval);
-      }
-    }, 15000);
-    
     // Register this runner with the server
     ws.send(JSON.stringify({
       type: 'register',
@@ -183,7 +174,8 @@ function connectToServer() {
       else if (data.type === 'data') {
         const connection = connections.get(data.connectionId);
         if (connection) {
-          sendDataInChunks(ws, data.data, data.tunnelId, data.connectionId);
+          const buffer = Buffer.from(data.data, 'base64');
+          connection.write(buffer);
         }
       }
       else if (data.type === 'close') {
@@ -199,7 +191,7 @@ function connectToServer() {
   });
   
   ws.on('close', () => {
-    console.log('Disconnected from tunnel server. Reconnecting immediately...');
+    console.log('Disconnected from tunnel server. Reconnecting in 5 seconds...');
     
     // Close all active connections
     for (const connection of connections.values()) {
@@ -207,8 +199,8 @@ function connectToServer() {
     }
     connections.clear();
     
-    // Reconnect immediately, then use backoff if it fails repeatedly
-    setTimeout(connectToServer, 1000);
+    // Reconnect after a delay
+    setTimeout(connectToServer, 5000);
   });
   
   ws.on('error', (err) => {
@@ -233,7 +225,12 @@ function handleNewConnection(ws, tunnelId, connectionId) {
   
   // Handle data from the local service
   socket.on('data', (data) => {
-    sendDataInChunks(ws, data, tunnelId, connectionId);
+    ws.send(JSON.stringify({
+      type: 'data',
+      tunnelId,
+      connectionId,
+      data: data.toString('base64')
+    }));
   });
   
   // Handle socket events
@@ -263,56 +260,6 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   // Don't exit the process, just log the error
 });
-
-// Add chunking for large data transfers
-function sendDataInChunks(ws, data, tunnelId, connectionId, chunkSize = 16384) {
-  // Convert data to base64
-  const base64Data = data.toString('base64');
-  
-  // If data is small enough, send it directly
-  if (base64Data.length <= chunkSize) {
-    ws.send(JSON.stringify({
-      type: 'data',
-      tunnelId,
-      connectionId,
-      data: base64Data
-    }));
-    return;
-  }
-  
-  // Otherwise, split into chunks and send
-  const chunks = [];
-  for (let i = 0; i < base64Data.length; i += chunkSize) {
-    chunks.push(base64Data.substring(i, i + chunkSize));
-  }
-  
-  // Send start of chunked data
-  ws.send(JSON.stringify({
-    type: 'chunked-data-start',
-    tunnelId,
-    connectionId,
-    totalChunks: chunks.length
-  }));
-  
-  // Send each chunk
-  chunks.forEach((chunk, index) => {
-    ws.send(JSON.stringify({
-      type: 'chunked-data',
-      tunnelId,
-      connectionId,
-      chunkIndex: index,
-      totalChunks: chunks.length,
-      data: chunk
-    }));
-  });
-  
-  // Send end of chunked data
-  ws.send(JSON.stringify({
-    type: 'chunked-data-end',
-    tunnelId,
-    connectionId
-  }));
-}
 
 // Start the runner
 connectToServer();

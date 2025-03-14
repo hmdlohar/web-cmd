@@ -56,13 +56,7 @@ wss.on("connection", (ws) => {
   ws.on("message", (message) => {
     try {
       const data = JSON.parse(message);
-      
-      if (data.type === "heartbeat") {
-        // Respond to heartbeat to confirm connection is alive
-        ws.send(JSON.stringify({ type: "heartbeat-ack" }));
-        return;
-      }
-      
+
       if (data.type === "register") {
         // Register a new tunnel
         const tunnelId = uuidv4();
@@ -103,62 +97,6 @@ wss.on("connection", (ws) => {
             })
           );
         }
-      }
-      
-      // 2. Handle chunked data
-      if (data.type === "chunked-data-start") {
-        // Initialize buffer for this connection
-        const tunnelId = data.tunnelId;
-        const connectionId = data.connectionId;
-        
-        // Find the socket for this connection
-        const tunnel = activeTunnels.get(tunnelId);
-        if (!tunnel) return;
-        
-        // Initialize chunk storage for this connection if not exists
-        if (!tunnel.chunks) tunnel.chunks = new Map();
-        
-        // Initialize chunks for this connection
-        tunnel.chunks.set(connectionId, {
-          receivedChunks: 0,
-          totalChunks: data.totalChunks,
-          data: []
-        });
-      }
-      else if (data.type === "chunked-data") {
-        const tunnelId = data.tunnelId;
-        const connectionId = data.connectionId;
-        
-        // Find the tunnel
-        const tunnel = activeTunnels.get(tunnelId);
-        if (!tunnel || !tunnel.chunks || !tunnel.chunks.has(connectionId)) return;
-        
-        // Store this chunk
-        const chunkInfo = tunnel.chunks.get(connectionId);
-        chunkInfo.data[data.chunkIndex] = data.data;
-        chunkInfo.receivedChunks++;
-        
-        // If all chunks received, process them
-        if (chunkInfo.receivedChunks === chunkInfo.totalChunks) {
-          // Combine all chunks
-          const completeData = chunkInfo.data.join('');
-          
-          // Find the socket for this connection
-          for (const socket of tunnel.connections.values()) {
-            if (socket.connectionId === connectionId) {
-              // Send the complete data
-              const buffer = Buffer.from(completeData, "base64");
-              socket.write(buffer);
-              break;
-            }
-          }
-          
-          // Clean up
-          tunnel.chunks.delete(connectionId);
-        }
-      }
-      else if (data.type === "chunked-data-end") {
-        // This is just a marker, actual processing happens when all chunks are received
       }
     } catch (err) {
       console.error("Error processing message:", err);
