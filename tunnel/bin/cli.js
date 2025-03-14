@@ -27,7 +27,7 @@ if (command === 'server') {
   // Run the server
   console.log('Starting hmd-tunnel server...');
   try {
-    require('../tcp-server.js');
+    require('../server.js');
   } catch (error) {
     console.error('Error starting server:', error);
     process.exit(1);
@@ -38,7 +38,7 @@ if (command === 'server') {
   try {
     // Pass all arguments after 'runner' to the runner script
     const args = process.argv.slice(3);
-    require('../tcp-runner.js');
+    require('../runner.js');
   } catch (error) {
     console.error('Error starting runner:', error);
     process.exit(1);
