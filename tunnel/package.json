@@ -1,6 +1,6 @@
 {
   "name": "hmd-tunnel",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "A simple tunneling service similar to ngrok",
   "main": "tunnel.js",
   "scripts": {
@@ -9,6 +9,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
+    "hmd-tunnel": "./bin/cli.js",
     "hmd-tunnel-server": "./bin/tunnel-server.js",
     "hmd-tunnel-runner": "./bin/tunnel-runner.js"
   },

@@ -1,4 +1,5 @@
 const { spawn } = require("child_process");
+const fs = require("fs");
 
 try {
   // Start the server in the background
@@ -6,21 +7,23 @@ try {
     stdio: "inherit",
   });
 
-  // Start the tunnel in parallel
-  const tunnel = spawn("npx", [
-    "hmd-tunnel",
-    "runner",
-    "--server",
-    "ws://140.245.27.200:8001",
-    "--port",
-    "3000",
-    "--remote-port",
-    "8080"
+  // Start the SSH tunnel in parallel
+  const tunnel = spawn("ssh", [
+    "-o",
+    "StrictHostKeyChecking=no",
+    "-p",
+    "443",
+    "-R0:localhost:3000",
+    "qr@a.pinggy.io",
   ]);
 
   // Handle tunnel output in realtime
   tunnel.stdout.on("data", (data) => {
-    // Log to console
+    // Write data to ping.txt as it comes in
+    fs.promises
+      .appendFile("ping.txt", data)
+      .catch((err) => console.error("Error writing to ping.txt:", err));
+    // Also log to console
     process.stdout.write(data);
   });
 
@@ -31,7 +34,7 @@ try {
   });
 
   tunnel.on("error", (error) => {
-    console.error("Error establishing tunnel:", error);
+    console.error("Error establishing SSH tunnel:", error);
     process.exit(1);
   });
 } catch (error) {
