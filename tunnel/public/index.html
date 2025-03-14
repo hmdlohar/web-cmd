@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Node Tunnel - Active Tunnels</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #333;
+      line-height: 1.6;
+    }
+    
+    h1 {
+      color: #2c3e50;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    .refresh-btn {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+    
+    .refresh-btn:hover {
+      background-color: #2980b9;
+    }
+    
+    .tunnels-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .tunnels-table th {
+      background-color: #f8f9fa;
+      padding: 12px 15px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid #ddd;
+    }
+    
+    .tunnels-table td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #ddd;
+    }
+    
+    .tunnels-table tr:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .no-tunnels {
+      text-align: center;
+      padding: 40px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      color: #666;
+      font-style: italic;
+    }
+    
+    .tunnel-link {
+      color: #3498db;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    
+    .tunnel-link:hover {
+      text-decoration: underline;
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    
+    .status-active {
+      background-color: #2ecc71;
+    }
+    
+    .connections-badge {
+      display: inline-block;
+      background-color: #3498db;
+      color: white;
+      border-radius: 12px;
+      padding: 2px 8px;
+      font-size: 12px;
+      min-width: 20px;
+      text-align: center;
+    }
+    
+    .auto-refresh {
+      display: flex;
+      align-items: center;
+      margin-top: 20px;
+      font-size: 14px;
+      color: #666;
+    }
+    
+    .footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+      border-top: 1px solid #eee;
+      padding-top: 20px;
+    }
+    
+    @media (max-width: 768px) {
+      .tunnels-table {
+        font-size: 14px;
+      }
+      
+      .tunnels-table th, .tunnels-table td {
+        padding: 8px 10px;
+      }
+      
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .refresh-btn {
+        margin-top: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Node Tunnel - Active Tunnels</h1>
+    <button class="refresh-btn" onclick="fetchTunnels()">
+      <span id="refresh-icon">🔄</span> Refresh
+    </button>
+  </div>
+  
+  <div id="tunnels-container">
+    <div class="no-tunnels">Loading tunnels...</div>
+  </div>
+  
+  <div class="auto-refresh">
+    <input type="checkbox" id="auto-refresh" checked>
+    <label for="auto-refresh">Auto-refresh every 10 seconds</label>
+  </div>
+  
+  <div class="footer">
+    <p>Node Tunnel Service - A simple tunneling service similar to ngrok</p>
+  </div>
+  
+  <script>
+    let refreshInterval;
+    const serverHost = window.location.host;
+    
+    function fetchTunnels() {
+      // Show refresh animation
+      document.getElementById('refresh-icon').textContent = '⌛';
+      
+      fetch('/api/tunnels')
+        .then(response => response.json())
+        .then(tunnels => {
+          const container = document.getElementById('tunnels-container');
+          
+          if (tunnels.length === 0) {
+            container.innerHTML = '<div class="no-tunnels">No active tunnels found. Run a tunnel-runner to create one.</div>';
+            return;
+          }
+          
+          let html = `
+            <table class="tunnels-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Public URL</th>
+                  <th>Local Port</th>
+                  <th>Created</th>
+                  <th>Active Connections</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+          
+          tunnels.forEach(tunnel => {
+            const createdAt = new Date(tunnel.createdAt).toLocaleString();
+            const publicUrl = `http://${serverHost.split(':')[0]}:${tunnel.publicPort}`;
+            
+            html += `
+              <tr>
+                <td><span class="status-indicator status-active"></span> Active</td>
+                <td><a href="${publicUrl}" target="_blank" class="tunnel-link">${publicUrl}</a></td>
+                <td>${tunnel.localPort}</td>
+                <td>${createdAt}</td>
+                <td><span class="connections-badge">${tunnel.connections}</span></td>
+              </tr>
+            `;
+          });
+          
+          html += `
+              </tbody>
+            </table>
+          `;
+          
+          container.innerHTML = html;
+        })
+        .catch(error => {
+          console.error('Error fetching tunnels:', error);
+          document.getElementById('tunnels-container').innerHTML = 
+            '<div class="no-tunnels">Error loading tunnels. Please try again.</div>';
+        })
+        .finally(() => {
+          // Reset refresh icon
+          document.getElementById('refresh-icon').textContent = '🔄';
+        });
+    }
+    
+    // Set up auto-refresh
+    function setupAutoRefresh() {
+      const autoRefreshCheckbox = document.getElementById('auto-refresh');
+      
+      autoRefreshCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+          refreshInterval = setInterval(fetchTunnels, 10000);
+        } else {
+          clearInterval(refreshInterval);
+        }
+      });
+      
+      // Initial setup of interval if checkbox is checked
+      if (autoRefreshCheckbox.checked) {
+        refreshInterval = setInterval(fetchTunnels, 10000);
+      }
+    }
+    
+    // Fetch tunnels on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchTunnels();
+      setupAutoRefresh();
+    });
+  </script>
+</body>
+</html> 
